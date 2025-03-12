@@ -39,7 +39,7 @@ jobs:
           cd noname
           git pull --rebase ${{ github.server_url }}/${{ env.upstream_repo }}.git master:master
 
-      - uses: actions/setup-node@v3
+      - uses: actions/setup-node@v4
         if: success() && steps.check_update.outputs.available == 'true'
         with:
           cache: 'yarn'
