@@ -12,25 +12,6 @@ game.import("character", function () {
 			my_general: ["male", "qun", 4, ["angyang"]],
 		},
 		skill: {
-			my_skill: {
-				trigger: { player: "useCardToPlayered" },
-				filter(event, player) {
-					return event.card && event.card.name === "sha";
-				},
-				forced: true,
-				logTarget: "target",
-				async content(event, trigger, player) {
-					trigger.getParent().directHit.add(trigger.target);
-				},
-				group: ["my_skill_draw"],
-			},
-			my_skill_draw: {
-				trigger: { player: "shaMiss" },
-				forced: true,
-				async content(event, trigger, player) {
-					player.draw();
-				},
-			},
 			angyang: {
     trigger: {
         player: "useCardToPlayered",
