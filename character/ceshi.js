@@ -53,6 +53,8 @@ game.import("character", function () {
     async content(event, trigger, player) {
     // 找出「对方」：你用牌时是目标，你被指定时是使用者
     const target = player === trigger.player ? trigger.target : trigger.player;
+    // 当前使用的牌（杀或决斗）
+    const currentCard = trigger.card;
     
     // 检查对方有没有手牌
     if (target.countCards("h") === 0) {
@@ -63,6 +65,22 @@ game.import("character", function () {
     // 获得对方 1 张手牌
     await player.gainPlayerCard(target, "h", true);
     player.popup("昂扬");
+    
+    // 结算完毕后，判断对方是否还有手牌
+    if (target.countCards("h") === 0) {
+        game.log(player, "昂扬：对方已无手牌，不再触发");
+        return;
+    }
+    
+    // 决定使用哪种虚拟牌
+    const virtualName = currentCard.name === "sha" ? "juedou" : "sha";
+    
+    // 等待当前牌结算完毕
+    await trigger.getParent().getParent();  // 拿到 useCard 事件
+    // 再等它结束
+    // 实际上这里直接用 trigger 的父事件即可
+    // 关键：在当前牌结算后，视为对目标使用虚拟牌
+    await player.useCard({ name: virtualName, isCard: true }, target, false);
 },
 },
 		},
