@@ -51,10 +51,19 @@ game.import("character", function () {
         return player === event.player ? event.target : event.player;
     },
     async content(event, trigger, player) {
-        // 先只弹个提示，看触发对不对
-        game.log(player, "昂扬触发了！");
-        player.popup("昂扬");
-    },
+    // 找出「对方」：你用牌时是目标，你被指定时是使用者
+    const target = player === trigger.player ? trigger.target : trigger.player;
+    
+    // 检查对方有没有手牌
+    if (target.countCards("h") === 0) {
+        game.log(player, "昂扬：对方没有手牌，无法发动");
+        return;
+    }
+    
+    // 获得对方 1 张手牌
+    await player.gainPlayerCard(target, "h", true);
+    player.popup("昂扬");
+},
 },
 		},
 		translate: {
