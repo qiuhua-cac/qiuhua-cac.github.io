@@ -114,7 +114,19 @@ function createContext(event, trigger, player, skillName) {
 
 		async useVirtual(name, target) {
 			// 视为使用一张虚拟牌
-			// 自动处理事件层级、目标选择、异步等待
+			// 防御：target 必须存在、非数组、在游戏中
+			if (!target) {
+				console.error(`[DSL] useVirtual 缺少 target`);
+				return;
+			}
+			if (Array.isArray(target)) {
+				console.error(`[DSL] useVirtual 暂不支持数组 target，请传单个角色`);
+				return;
+			}
+			if (target.isIn && !target.isIn()) {
+				console.error(`[DSL] useVirtual 的 target 已不在游戏中`);
+				return;
+			}
 			const card = { name: name, isCard: true };
 			await player.useCard(card, target);
 		},
@@ -176,6 +188,16 @@ function translateTrigger(dsl) {
 			console.error(`[DSL] 未知事件名: ${dsl.trigger}，请检查 EVENT_MAP`);
 			return null;
 		}
+		// 校验映射到的无名杀事件名是否真实存在
+		for (const key in mapped) {
+			const realName = mapped[key];
+			if (!lib.hookmap[realName]) {
+				console.error(
+					`[DSL] 事件名 "${dsl.trigger}" 映射到无名杀事件 "${realName}"，但该事件在当前版本不存在。` +
+					`可能是版本差异，请用 Object.keys(lib.hookmap) 查证。`
+				);
+			}
+		}
 		return { trigger: mapped, handlers: [{ filter: dsl.filter, run: dsl.run, dslName: dsl.trigger }] };
 	}
 
@@ -188,6 +210,16 @@ function translateTrigger(dsl) {
 			if (!mapped) {
 				console.error(`[DSL] 未知事件名: ${eventName}，请检查 EVENT_MAP`);
 				continue;
+			}
+			// 校验映射到的无名杀事件名是否真实存在
+			for (const key in mapped) {
+				const realName = mapped[key];
+				if (!lib.hookmap[realName]) {
+					console.error(
+						`[DSL] 事件名 "${eventName}" 映射到无名杀事件 "${realName}"，但该事件在当前版本不存在。` +
+						`可能是版本差异，请用 Object.keys(lib.hookmap) 查证。`
+					);
+				}
 			}
 			// 合并 trigger 字段
 			if (!mergedTrigger) {
@@ -230,6 +262,24 @@ export function defineSkill(name, dsl) {
 
 		// 核心：把多个 handler 合并成一个 content
 		async content(event, trigger, player) {
+			// ----- 循环保护：同一技能 2 秒内触发超过 50 次，强制中断 -----
+			if (!player._dsl_loop_guard) player._dsl_loop_guard = {};
+			const guardKey = name;
+			const now = Date.now();
+			if (!player._dsl_loop_guard[guardKey]) {
+				player._dsl_loop_guard[guardKey] = { count: 0, start: now };
+			}
+			const guard = player._dsl_loop_guard[guardKey];
+			if (now - guard.start > 2000) {
+				guard.count = 0;
+				guard.start = now;
+			}
+			guard.count++;
+			if (guard.count > 50) {
+				console.error(`[DSL] 技能 ${name} 在 2 秒内触发超过 50 次，疑似死循环，已强制中断。`);
+				return;
+			}
+
 			// 找出当前触发对应哪个 handler
 			// 通过 trigger.name（无名杀事件名）反查 dslName
 			const triggerName = trigger.name;
@@ -261,7 +311,7 @@ export function defineSkill(name, dsl) {
 					const ok = matched.filter(ctx);
 					if (!ok) return;
 				} catch (e) {
-					console.error(`[DSL] 技能 ${name} 的 filter 出错:`, e);
+					console.error(`[DSL] 技能 ${name} 的事件 "${matched.dslName}" 的 filter 出错:`, e);
 					return;
 				}
 			}
@@ -271,7 +321,7 @@ export function defineSkill(name, dsl) {
 				try {
 					await matched.run(ctx);
 				} catch (e) {
-					console.error(`[DSL] 技能 ${name} 的 run 出错:`, e);
+					console.error(`[DSL] 技能 ${name} 的事件 "${matched.dslName}" 的 run 出错:`, e);
 				}
 			}
 		},
