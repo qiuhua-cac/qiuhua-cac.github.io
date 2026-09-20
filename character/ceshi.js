@@ -9,7 +9,7 @@ game.import("character", function () {
 			},
 		},
 		character: {
-			my_general: ["male", "qun", 4, ["my_skill"]],
+			my_general: ["male", "qun", 4, ["angyang"]],
 		},
 		skill: {
 			my_skill: {
@@ -31,12 +31,39 @@ game.import("character", function () {
 					player.draw();
 				},
 			},
+			angyang: {
+    trigger: {
+        player: "useCardToPlayered",
+        target: "useCardToTargeted",
+    },
+    filter(event, player) {
+        // 只对【杀】和【决斗】生效
+        if (event.card.name !== "sha" && event.card.name !== "juedou") return false;
+        // 只处理「仅指定1名其他角色」的情况
+        if (event.card.name === "sha") {
+            // 杀只有一个目标的情况
+            if (event.targets && event.targets.length !== 1) return false;
+        }
+        return true;
+    },
+    logTarget(event, player) {
+        // 对方是谁
+        return player === event.player ? event.target : event.player;
+    },
+    async content(event, trigger, player) {
+        // 先只弹个提示，看触发对不对
+        game.log(player, "昂扬触发了！");
+        player.popup("昂扬");
+    },
+},
 		},
 		translate: {
 			ceshi: "我的武将包",
 			my_general: "测试武将",
 			my_skill: "测试技",
 			my_skill_info: "出牌阶段，你使用【杀】无视目标防具。若此【杀】被【闪】抵消，你摸一张牌。",
+			angyang: "昂扬",
+			angyang_info: "当你使用【杀】或【决斗】仅指定一名其他角色为目标后，或成为其他角色使用这些牌的目标后，你可以获得其一张手牌。若如此做，正在使用的牌结算后，若其有手牌，你视为对其使用另一种牌。",
 		},
 	};
 });
