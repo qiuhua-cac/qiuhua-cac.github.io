@@ -188,14 +188,16 @@ function translateTrigger(dsl) {
 			console.error(`[DSL] 未知事件名: ${dsl.trigger}，请检查 EVENT_MAP`);
 			return null;
 		}
-		// 校验映射到的无名杀事件名是否真实存在
-		for (const key in mapped) {
-			const realName = mapped[key];
-			if (!lib.hookmap[realName]) {
-				console.error(
-					`[DSL] 事件名 "${dsl.trigger}" 映射到无名杀事件 "${realName}"，但该事件在当前版本不存在。` +
-					`可能是版本差异，请用 Object.keys(lib.hookmap) 查证。`
-				);
+		// 校验映射到的无名杀事件名是否真实存在（仅当 hookmap 已有内容时）
+		if (Object.keys(lib.hookmap).length > 0) {
+			for (const key in mapped) {
+				const realName = mapped[key];
+				if (!lib.hookmap[realName]) {
+					console.warn(
+						`[DSL] 事件名 "${dsl.trigger}" 映射到 "${realName}"，当前 hookmap 里没查到。` +
+						`注意：可能只是注册时机太早，不代表事件不存在。`
+					);
+				}
 			}
 		}
 		return { trigger: mapped, handlers: [{ filter: dsl.filter, run: dsl.run, dslName: dsl.trigger }] };
@@ -211,14 +213,16 @@ function translateTrigger(dsl) {
 				console.error(`[DSL] 未知事件名: ${eventName}，请检查 EVENT_MAP`);
 				continue;
 			}
-			// 校验映射到的无名杀事件名是否真实存在
-			for (const key in mapped) {
-				const realName = mapped[key];
-				if (!lib.hookmap[realName]) {
-					console.error(
-						`[DSL] 事件名 "${eventName}" 映射到无名杀事件 "${realName}"，但该事件在当前版本不存在。` +
-						`可能是版本差异，请用 Object.keys(lib.hookmap) 查证。`
-					);
+			// 校验映射到的无名杀事件名是否真实存在（仅当 hookmap 已有内容时）
+			if (Object.keys(lib.hookmap).length > 0) {
+				for (const key in mapped) {
+					const realName = mapped[key];
+					if (!lib.hookmap[realName]) {
+						console.warn(
+							`[DSL] 事件名 "${eventName}" 映射到 "${realName}"，当前 hookmap 里没查到。` +
+							`注意：可能只是注册时机太早，不代表事件不存在。`
+						);
+					}
 				}
 			}
 			// 合并 trigger 字段
