@@ -51,37 +51,39 @@ game.import("character", function () {
         return player === event.player ? event.target : event.player;
     },
     async content(event, trigger, player) {
-    // 找出「对方」：你用牌时是目标，你被指定时是使用者
     const target = player === trigger.player ? trigger.target : trigger.player;
-    // 当前使用的牌（杀或决斗）
-    const currentCard = trigger.card;
-    
-    // 检查对方有没有手牌
-    if (target.countCards("h") === 0) {
-        game.log(player, "昂扬：对方没有手牌，无法发动");
-        return;
-    }
-    
-    // 获得对方 1 张手牌
+    if (target.countCards("h") === 0) return;
     await player.gainPlayerCard(target, "h", true);
     player.popup("昂扬");
     
-    // 结算完毕后，判断对方是否还有手牌
-    if (target.countCards("h") === 0) {
-        game.log(player, "昂扬：对方已无手牌，不再触发");
-        return;
-    }
-    
-    // 决定使用哪种虚拟牌
-    const virtualName = currentCard.name === "sha" ? "juedou" : "sha";
-    
-    // 等待当前牌结算完毕
-    await trigger.getParent().getParent();  // 拿到 useCard 事件
-    // 再等它结束
-    // 实际上这里直接用 trigger 的父事件即可
-    // 关键：在当前牌结算后，视为对目标使用虚拟牌
-    await player.useCard({ name: virtualName, isCard: true }, target, false);
+    // 用 storage 存：对方是谁 + 当前牌名
+    player.storage.angyang_target = target;
+    player.storage.angyang_cardname = trigger.card.name;
+    // 临时获得辅助技能，用来监听 useCardAfter
+    player.addTempSkill("angyang_after", "phaseAfter");
 },
+},
+angyang_after: {
+    trigger: { player: "useCardAfter" },
+    forced: true,
+    popup: false,
+    filter(event, player) {
+        // 必须有昂扬留下的 storage
+        return player.storage.angyang_target && player.storage.angyang_target.isIn();
+    },
+    async content(event, trigger, player) {
+        const target = player.storage.angyang_target;
+        const cardname = player.storage.angyang_cardname;
+        // 清掉状态，避免重复触发
+        delete player.storage.angyang_target;
+        delete player.storage.angyang_cardname;
+        // 对方没手牌就不触发
+        if (target.countCards("h") === 0) return;
+        // 决定虚拟牌
+        const virtualName = cardname === "sha" ? "juedou" : "sha";
+        // 视为使用
+        await player.useCard({ name: virtualName, isCard: true }, target);
+    },
 },
 		},
 		translate: {
