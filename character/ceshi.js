@@ -23,15 +23,19 @@ game.import("character", function () {
 		},
 	});
 
-	// ===== 昂扬后续技能 =====
+	// ===== 昂扬后续技能（诊断版：filter 恒 true） =====
 	defineSkill("angyang_after", {
 		trigger: "cardUsed",
 		filter: (ctx) => {
-			const stored = ctx.storage.get("card");
-			const current = ctx.card;
-			const same = stored === current;
-			console.warn("[昂扬探针-filter] stored === current =", same);
-			return same;
+			console.warn(
+				"[昂扬探针-filter] 被调用，ctx.card =",
+				ctx.card,
+				"，ctx.card.name =",
+				ctx.card && ctx.card.name,
+				"，ctx.event =",
+				ctx.event && ctx.event.name
+			);
+			return true; // 诊断用：恒 true
 		},
 		async run(ctx) {
 			console.warn("====== 昂扬探针-after: run 开始 ======");
@@ -67,7 +71,7 @@ game.import("character", function () {
 			ceshi: "我的武将包",
 			my_general: "测试武将",
 			angyang: "昂扬",
-			angyang_info: "当你使用【杀】或【决斗】仅指定一名其他角色为目标后，或成为其他角色使用这些牌的目标后，你可以获得其一张手牌。若如此做，正在使用的牌结算后，若其有手牌，你视为对其使用另一种牌。",
+			angyang_info: "当你使用【杀】或【决斗】仅指定一名其他角色为目标后，或成为其他角色使用这些牌为目标后，你可以获得其一张手牌。若如此做，正在使用的牌结算后，若其有手牌，你视为对其使用另一种牌。",
 			angyang_after: "昂扬",
 			angyang_after_info: "昂扬的后续效果",
 		},
