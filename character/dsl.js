@@ -1,12 +1,8 @@
 // character/dsl.js
 // 无名杀技能 DSL 翻译层
-// 作用：把简洁的 defineSkill DSL 翻译成无名杀能识别的 lib.skill.xxx
 
 import { lib, game, ui, get, ai, _status } from "../noname.js";
 
-// ============================================================
-// 一、语义事件名映射表
-// ============================================================
 const EVENT_MAP = {
 	shaTargeted: { player: "useCardToPlayered", target: "useCardToTargeted" },
 	cardTargeted: { player: "useCardToPlayered", target: "useCardToTargeted" },
@@ -28,9 +24,6 @@ const EVENT_MAP = {
 
 const GLOBAL_EVENTS = ["dying"];
 
-// ============================================================
-// 二、ctx 对象工厂
-// ============================================================
 function createContext(event, trigger, player, skillName) {
 	const ctx = {
 		player: player,
@@ -162,7 +155,6 @@ function createContext(event, trigger, player, skillName) {
 			lib.skill[tempSkillName] = {
 				trigger: { player: "useCardAfter" },
 				filter(event, triggerPlayer) {
-					console.warn("[DSL] 临时技能 filter 被调用，当前牌 =", trigger.card && trigger.card.name, "，目标牌 =", currentCard && currentCard.name);
 					const tc = trigger.card;
 					if (!tc || !currentCard) return false;
 					const isMatch = tc === currentCard || (tc.cardid && currentCard.cardid && tc.cardid === currentCard.cardid);
@@ -193,26 +185,12 @@ function createContext(event, trigger, player, skillName) {
 	return ctx;
 }
 
-// ============================================================
-// 三、translateTrigger
-// ============================================================
 function translateTrigger(dsl) {
 	if (dsl.trigger) {
 		const mapped = EVENT_MAP[dsl.trigger];
 		if (!mapped) {
 			console.error(`[DSL] 未知事件名: ${dsl.trigger}，请检查 EVENT_MAP`);
 			return null;
-		}
-		if (Object.keys(lib.hookmap).length > 0) {
-			for (const key in mapped) {
-				const realName = mapped[key];
-				if (!lib.hookmap[realName]) {
-					console.warn(
-						`[DSL] 事件名 "${dsl.trigger}" 映射到 "${realName}"，当前 hookmap 里没查到。` +
-						`注意：可能只是注册时机太早，不代表事件不存在。`
-					);
-				}
-			}
 		}
 		return { trigger: mapped, handlers: [{ filter: dsl.filter, run: dsl.run, dslName: dsl.trigger }] };
 	}
@@ -226,20 +204,7 @@ function translateTrigger(dsl) {
 				console.error(`[DSL] 未知事件名: ${eventName}，请检查 EVENT_MAP`);
 				continue;
 			}
-			if (Object.keys(lib.hookmap).length > 0) {
-				for (const key in mapped) {
-					const realName = mapped[key];
-					if (!lib.hookmap[realName]) {
-						console.warn(
-							`[DSL] 事件名 "${eventName}" 映射到 "${realName}"，当前 hookmap 里没查到。` +
-							`注意：可能只是注册时机太早，不代表事件不存在。`
-						);
-					}
-				}
-			}
-			if (!mergedTrigger) {
-				mergedTrigger = {};
-			}
+			if (!mergedTrigger) mergedTrigger = {};
 			for (const key in mapped) {
 				mergedTrigger[key] = mapped[key];
 			}
@@ -257,9 +222,6 @@ function translateTrigger(dsl) {
 	return null;
 }
 
-// ============================================================
-// 四、defineSkill
-// ============================================================
 export function defineSkill(name, dsl) {
 	const translated = translateTrigger(dsl);
 	if (!translated) return;
@@ -268,6 +230,32 @@ export function defineSkill(name, dsl) {
 
 	const skill = {
 		trigger: trigger,
+
+		// ===== 新增：顶层 filter，无名杀弹窗前会调用 =====
+		filter(event, player) {
+			const ctx = createContext(event, event, player, name);
+			const eventName = event && event.name;
+			for (const h of handlers) {
+				const mapped = EVENT_MAP[h.dslName];
+				if (!mapped) continue;
+				let matched = false;
+				for (const key in mapped) {
+					if (mapped[key] === eventName) { matched = true; break; }
+				}
+				if (!matched) continue;
+				if (h.filter) {
+					try {
+						return h.filter(ctx);
+					} catch (e) {
+						console.error(`[DSL] 技能 ${name} 的事件 "${h.dslName}" 的 filter 出错:`, e);
+						return false;
+					}
+				}
+				return true;
+			}
+			return false;
+		},
+
 		forced: dsl.forced || false,
 		popup: dsl.popup !== undefined ? dsl.popup : true,
 		audio: dsl.audio || 2,
@@ -306,21 +294,9 @@ export function defineSkill(name, dsl) {
 				if (matched) break;
 			}
 
-			if (!matched) {
-				matched = handlers[0];
-			}
+			if (!matched) matched = handlers[0];
 
 			const ctx = createContext(event, trigger, player, name);
-
-			if (matched.filter) {
-				try {
-					const ok = matched.filter(ctx);
-					if (!ok) return;
-				} catch (e) {
-					console.error(`[DSL] 技能 ${name} 的事件 "${matched.dslName}" 的 filter 出错:`, e);
-					return;
-				}
-			}
 
 			if (matched.run) {
 				try {
@@ -345,9 +321,6 @@ export function defineSkill(name, dsl) {
 	return skill;
 }
 
-// ============================================================
-// 五、attachSkillToGeneral
-// ============================================================
 export function attachSkillToGeneral(generalName, skillNames) {
 	if (!lib.character[generalName]) {
 		console.error(`[DSL] 武将 ${generalName} 不存在`);
