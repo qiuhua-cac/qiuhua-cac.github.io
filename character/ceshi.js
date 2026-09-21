@@ -2,11 +2,10 @@ import { lib, game, ui, get, ai, _status } from "../noname.js";
 import { defineSkill } from "./dsl.js";
 
 game.import("character", function () {
-	// 注册昂扬的 DSL 技能
+	// ===== 昂扬主技能 =====
 	defineSkill("angyang", {
 		trigger: "shaTargeted",
 		filter: (ctx) => {
-			// 只对杀和决斗生效
 			const card = ctx.card;
 			if (!card) return false;
 			if (card.name !== "sha" && card.name !== "juedou") return false;
@@ -19,30 +18,37 @@ game.import("character", function () {
 			ctx.popup("昂扬");
 			ctx.storage.set("target", target);
 			ctx.storage.set("card", ctx.card);
-			console.log("[昂扬探针] 存进去的 card =", ctx.card, "，name =", ctx.card && ctx.card.name);
+			console.warn("[昂扬探针] 存进去的 card name =", ctx.card && ctx.card.name);
 			ctx.addTempSkill("angyang_after", "phaseAfter");
 		},
 	});
 
+	// ===== 昂扬后续技能 =====
 	defineSkill("angyang_after", {
 		trigger: "cardUsed",
 		filter: (ctx) => {
-			return ctx.storage.get("card") === ctx.card;
+			const stored = ctx.storage.get("card");
+			const current = ctx.card;
+			const same = stored === current;
+			console.warn("[昂扬探针-filter] stored === current =", same);
+			return same;
 		},
 		async run(ctx) {
-    const target = ctx.storage.get("target");
-    const card = ctx.storage.get("card");
-    console.log("[昂扬探针-after] target =", target, "，card =", card, "，card.name =", card && card.name, "，ctx.card =", ctx.card, "，ctx.card.name =", ctx.card && ctx.card.name);
-    ctx.storage.clear();
-    if (!target || target.countCards("h") === 0) {
-        console.log("[昂扬探针-after] 因 target 无手牌 return");
-        return;
-    }
-    const virtualName = card.name === "sha" ? "juedou" : "sha";
-    console.log("[昂扬探针-after] 准备 useVirtual:", virtualName, "→", target);
-    await ctx.useVirtual(virtualName, target);
-    console.log("[昂扬探针-after] useVirtual 已执行完毕");
-},
+			console.warn("====== 昂扬探针-after: run 开始 ======");
+			const target = ctx.storage.get("target");
+			const card = ctx.storage.get("card");
+			console.warn("昂扬探针-after target =", target);
+			console.warn("昂扬探针-after card =", card);
+			ctx.storage.clear();
+			if (!target || target.countCards("h") === 0) {
+				console.warn("昂扬探针-after: target 无手牌，return");
+				return;
+			}
+			const virtualName = card.name === "sha" ? "juedou" : "sha";
+			console.warn("昂扬探针-after: 准备 useVirtual", virtualName);
+			await ctx.useVirtual(virtualName, target);
+			console.warn("====== 昂扬探针-after: useVirtual 完成 ======");
+		},
 	});
 
 	return {
@@ -56,8 +62,6 @@ game.import("character", function () {
 			my_general: ["male", "qun", 4, ["angyang"]],
 		},
 		skill: {
-			// 技能已经通过 defineSkill 注册到 lib.skill
-			// 这里不用再写
 		},
 		translate: {
 			ceshi: "我的武将包",
