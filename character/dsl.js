@@ -1,9 +1,7 @@
 // character/dsl.js
 // 无名杀技能 DSL 翻译层
 // 作用：把简洁的 defineSkill DSL 翻译成无名杀能识别的 lib.skill.xxx
-
 import { lib, game, ui, get, ai, _status } from "../noname.js";
-
 // ============================================================
 // 一、语义事件名映射表
 // ============================================================
@@ -25,9 +23,7 @@ const EVENT_MAP = {
 	drawEnd: { player: "drawEnd" },
 	gainEnd: { player: "gainEnd" },
 };
-
 const GLOBAL_EVENTS = ["dying"];
-
 // ============================================================
 // 二、ctx 对象工厂
 // ============================================================
@@ -37,7 +33,6 @@ function createContext(event, trigger, player, skillName) {
 		trigger: trigger,
 		event: event,
 		skill: skillName,
-
 		get target() {
 			if (!trigger) return null;
 			if (trigger.target) return trigger.target;
@@ -50,7 +45,6 @@ function createContext(event, trigger, player, skillName) {
 		get source() {
 			return trigger ? trigger.source || trigger.player : null;
 		},
-
 		storage: {
 			_prefix: skillName + "_",
 			set(key, value) {
@@ -71,25 +65,21 @@ function createContext(event, trigger, player, skillName) {
 				}
 			},
 		},
-
 		async draw(n = 1) {
 			await player.draw(n);
 		},
-
 		async gainCard(target, position = "h", n = 1) {
 			const result = await player
 				.gainPlayerCard(target, position, true, "gain2")
 				.forResult();
 			return result;
 		},
-
 		async discard(target, position = "he", n = 1) {
 			const result = await target
 				.chooseToDiscard(n, position, true)
 				.forResult();
 			return result;
 		},
-
 		async useVirtual(name, target) {
 			if (!target) {
 				console.error(`[DSL] useVirtual 缺少 target`);
@@ -106,46 +96,36 @@ function createContext(event, trigger, player, skillName) {
 			const card = { name: name, isCard: true, cards: [], virtual: true };
 			await player.useCard(card, target);
 		},
-
 		async loseHp(n = 1) {
 			await player.loseHp(n);
 		},
-
 		async damage(target, n = 1, nature = null) {
 			await target.damage(n, nature);
 		},
-
 		async recover(target, n = 1) {
 			const t = target || player;
 			await t.recover(n);
 		},
-
 		addSkill(name) {
 			player.addSkill(name);
 		},
-
 		addTempSkill(name, expire) {
 			player.addTempSkill(name, expire);
 		},
-
 		removeSkill(name) {
 			player.removeSkill(name);
 		},
-
 		isLockedSkill(name) {
 			const skill = lib.skill[name];
 			if (!skill) return false;
 			return !!(skill.locked || skill.forced);
 		},
-
 		log(...args) {
 			game.log(player, ...args);
 		},
-
 		popup(text) {
 			player.popup(text);
 		},
-
 		afterCardSettled(callback) {
 			const currentCard = trigger && trigger.card;
 			if (!currentCard) {
@@ -189,10 +169,8 @@ function createContext(event, trigger, player, skillName) {
 			player.addTempSkill(tempSkillName, "phaseAfter");
 		},
 	};
-
 	return ctx;
 }
-
 // ============================================================
 // 三、translateTrigger
 // ============================================================
@@ -216,7 +194,6 @@ function translateTrigger(dsl) {
 		}
 		return { trigger: mapped, handlers: [{ filter: dsl.filter, run: dsl.run, dslName: dsl.trigger }] };
 	}
-
 	if (dsl.on) {
 		const handlers = [];
 		let mergedTrigger = null;
@@ -252,20 +229,16 @@ function translateTrigger(dsl) {
 		}
 		return { trigger: mergedTrigger, handlers };
 	}
-
 	console.error("[DSL] defineSkill 缺少 trigger 或 on 字段");
 	return null;
 }
-
 // ============================================================
 // 四、defineSkill
 // ============================================================
 export function defineSkill(name, dsl) {
 	const translated = translateTrigger(dsl);
 	if (!translated) return;
-
 	const { trigger, handlers } = translated;
-
 	const skill = {
 		trigger: trigger,
 		forced: dsl.forced || false,
@@ -273,7 +246,6 @@ export function defineSkill(name, dsl) {
 		audio: dsl.audio || 2,
 		logTarget: dsl.logTarget,
 		_priority: dsl.priority || 0,
-
 		async content(event, trigger, player) {
 			if (!player._dsl_loop_guard) player._dsl_loop_guard = {};
 			const guardKey = name;
@@ -291,8 +263,8 @@ export function defineSkill(name, dsl) {
 				console.error(`[DSL] 技能 ${name} 在 2 秒内触发超过 50 次，疑似死循环，已强制中断。`);
 				return;
 			}
-
-			const triggerName = trigger.name;
+			// 修复：事件名从 event.name 获取，trigger 对象没有 name
+			const triggerName = event.name;
 			let matched = null;
 			for (const h of handlers) {
 				const mapped = EVENT_MAP[h.dslName];
@@ -305,13 +277,10 @@ export function defineSkill(name, dsl) {
 				}
 				if (matched) break;
 			}
-
 			if (!matched) {
 				matched = handlers[0];
 			}
-
 			const ctx = createContext(event, trigger, player, name);
-
 			if (matched.filter) {
 				try {
 					const ok = matched.filter(ctx);
@@ -321,7 +290,6 @@ export function defineSkill(name, dsl) {
 					return;
 				}
 			}
-
 			if (matched.run) {
 				try {
 					await matched.run(ctx);
@@ -330,7 +298,6 @@ export function defineSkill(name, dsl) {
 				}
 			}
 		},
-
 		onremove(player) {
 			for (const k in player.storage) {
 				if (k.startsWith(name + "_")) {
@@ -339,12 +306,9 @@ export function defineSkill(name, dsl) {
 			}
 		},
 	};
-
 	lib.skill[name] = skill;
-
 	return skill;
 }
-
 // ============================================================
 // 五、attachSkillToGeneral
 // ============================================================
