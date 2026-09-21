@@ -145,7 +145,7 @@ game.import("character", function () {
 			},
 		},
 		character: {
-			my_general: ["male", "qun", 4, ["angyang"]],
+			my_general: ["male", "qun", 4, ["angyang", "kuishu"]],
 		},
 		skill: {
 		},
