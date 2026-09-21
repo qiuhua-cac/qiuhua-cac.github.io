@@ -141,7 +141,7 @@ function createContext(event, trigger, player, skillName) {
 			};
 			lib.skill[tempSkillName] = {
 				trigger: { player: "useCardAfter" },
-				filter(event, triggerPlayer) {
+				filter(player, event, triggerPlayer) {
 					console.warn("[DSL] 临时技能 filter 被调用，当前牌 =", trigger.card && trigger.card.name, "，目标牌 =", currentCard && currentCard.name);
 					const tc = trigger.card;
 					if (!tc || !currentCard) return false;
@@ -172,7 +172,7 @@ function createContext(event, trigger, player, skillName) {
 	return ctx;
 }
 // ============================================================
-// 三、translateTrigger【已改造：增加原生trigger.filter】
+// 三、translateTrigger【修复：修正trigger.filter参数顺序！】
 // ============================================================
 function translateTrigger(dsl) {
 	if (dsl.trigger) {
@@ -193,9 +193,9 @@ function translateTrigger(dsl) {
 			}
 		}
 		const triggerObj = mapped;
-		// 【新增】注入原生trigger.filter，在询问弹窗之前执行
+		// 【重点修复】无名杀原生trigger.filter参数顺序：player, event, trigger
 		if(dsl.filter){
-			triggerObj.filter = function(event, trigger, player){
+			triggerObj.filter = function(player, event, trigger){
 				const ctx = createContext(event, trigger, player, dsl.name);
 				try{
 					return dsl.filter(ctx);
@@ -240,7 +240,7 @@ function translateTrigger(dsl) {
 				dslName: eventName,
 			});
 		}
-		// 【新增】on多事件模式，原生trigger.filter暂不支持，后续扩展
+		// on多事件模式，原生trigger.filter暂不支持
 		return { trigger: mergedTrigger, handlers };
 	}
 	console.error("[DSL] defineSkill 缺少 trigger 或 on 字段");
@@ -277,7 +277,6 @@ export function defineSkill(name, dsl) {
 				console.error(`[DSL] 技能 ${name} 在 2 秒内触发超过 50 次，疑似死循环，已强制中断。`);
 				return;
 			}
-			// 修复：事件名从 event.name 获取，trigger 对象没有 name
 			const triggerName = event.name;
 			let matched = null;
 			for (const h of handlers) {
