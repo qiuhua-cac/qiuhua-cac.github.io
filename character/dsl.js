@@ -289,6 +289,7 @@ export function defineSkill(name, dsl) {
 		filter(event, player) {
 			const ctx = createContext(event, event, player, name);
 			const eventName = event && event.name;
+			if (name === "kuishu") console.warn("[DSL-傀术-顶层filter] event.name =", eventName);
 			for (const h of handlers) {
 				const mapped = EVENT_MAP[h.dslName];
 				if (!mapped) continue;
