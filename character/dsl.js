@@ -113,6 +113,32 @@ function createContext(event, trigger, player, skillName) {
 			await t.recover(n);
 		},
 
+		async chooseControl(...options) {
+			// 简单单选：弹窗给玩家选一个，返回选中的字符串
+			// 用法：const r = await ctx.chooseControl("选项A", "选项B");
+			const result = await player
+				.chooseControl(...options)
+				.set("ai", () => options[0])
+				.forResultControl();
+			return result;
+		},
+
+		async chooseButtonFromList(title, list, multi = false) {
+			// 从结构化列表选按钮，返回选中项数组（每项是 [分类, 副标题, 名字]）
+			// 用法：const links = await ctx.chooseButtonFromList("请选择", [["分类","副标题","名字"], ...], false);
+			// links[0] 是选中项
+			const links = await player
+				.chooseButton([title, [list, "vcard"]], multi)
+				.set("ai", (button) => {
+					if (button && button.link && button.link[2] && lib.skill[button.link[2]]) {
+						return get.skillRank ? get.skillRank(button.link[2]) : 1;
+					}
+					return 1;
+				})
+				.forResultLinks();
+			return links;
+		},
+
 		addSkill(name) {
 			player.addSkill(name);
 		},
