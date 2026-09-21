@@ -64,16 +64,12 @@ game.import("character", function () {
 	// ===== 傀术（第一阶段） =====
 	defineSkill("kuishu", {
 		trigger: "turnStart2",
+		forced: true,
 		filter: (ctx) => {
-			console.warn("[傀术-filter] 被调用，trigger.name =", ctx.trigger && ctx.trigger.name);
 			return true;
 		},
 		async run(ctx) {
 			console.warn("[傀术] 回合开始触发");
-
-			const want = await ctx.chooseControl("发动", "不发动");
-			console.warn("[傀术] 玩家选择：", want);
-			if (want !== "发动") return;
 
 			ctx.popup("傀术");
 
@@ -121,7 +117,8 @@ game.import("character", function () {
 			const activeLinks = await ctx.chooseButtonFromList(
 				"从技能池里选 2 个激活",
 				poolList,
-				true
+				true,
+				2
 			);
 			const active = (activeLinks || []).map(l => l[2]);
 			console.warn("[傀术] 激活：", active);
