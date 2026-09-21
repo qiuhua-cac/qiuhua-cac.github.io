@@ -47,7 +47,6 @@ const GLOBAL_EVENTS = ["dying"];
 // ============================================================
 function createContext(event, trigger, player, skillName) {
 	const ctx = {
-		// ----- 基础引用 -----
 		player: player,
 		trigger: trigger,
 		event: event,
@@ -66,7 +65,6 @@ function createContext(event, trigger, player, skillName) {
 			return trigger ? trigger.source || trigger.player : null;
 		},
 
-		// ----- storage 管理 -----
 		storage: {
 			_prefix: skillName + "_",
 			set(key, value) {
@@ -88,7 +86,6 @@ function createContext(event, trigger, player, skillName) {
 			},
 		},
 
-		// ----- 快捷动作 -----
 		async draw(n = 1) {
 			await player.draw(n);
 		},
@@ -137,7 +134,6 @@ function createContext(event, trigger, player, skillName) {
 			await t.recover(n);
 		},
 
-		// ----- 技能管理 -----
 		addSkill(name) {
 			player.addSkill(name);
 		},
@@ -150,14 +146,12 @@ function createContext(event, trigger, player, skillName) {
 			player.removeSkill(name);
 		},
 
-		// ----- 判断 -----
 		isLockedSkill(name) {
 			const skill = lib.skill[name];
 			if (!skill) return false;
 			return !!(skill.locked || skill.forced);
 		},
 
-		// ----- 日志 -----
 		log(...args) {
 			game.log(player, ...args);
 		},
@@ -166,7 +160,6 @@ function createContext(event, trigger, player, skillName) {
 			player.popup(text);
 		},
 
-		// ----- 新增：等当前牌结算完后执行回调 -----
 		afterCardSettled(callback) {
 			const currentCard = trigger && trigger.card;
 			if (!currentCard) {
@@ -184,6 +177,8 @@ function createContext(event, trigger, player, skillName) {
 				async content(event, trigger, triggerPlayer) {
 					triggerPlayer.removeSkill(tempSkillName);
 					delete lib.skill[tempSkillName];
+					delete lib.translate[tempSkillName];
+					delete lib.translate[tempSkillName + "_info"];
 					try {
 						await callback();
 					} catch (e) {
@@ -191,7 +186,12 @@ function createContext(event, trigger, player, skillName) {
 					}
 				},
 				silent: true,
+				popup: false,
+				audio: 0,
 			};
+			// 给临时技能注册翻译，让弹窗显示为「昂扬」而不是乱码
+			lib.translate[tempSkillName] = "昂扬";
+			lib.translate[tempSkillName + "_info"] = "昂扬的后续效果";
 			player.addTempSkill(tempSkillName, "phaseAfter");
 		},
 	};
