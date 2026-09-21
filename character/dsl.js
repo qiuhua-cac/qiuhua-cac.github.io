@@ -124,10 +124,13 @@ function createContext(event, trigger, player, skillName) {
 			return result;
 		},
 
-		async chooseButtonFromList(title, list, multi = false) {
-			// 从结构化列表选按钮，返回选中项数组（每项是 [分类, 副标题, 名字]）
-			const links = await player
-				.chooseButton([title, [list, "vcard"]], multi)
+		async chooseButtonFromList(title, list, multi = false, selectCount = null) {
+			// selectCount: 指定必须选几个。null = 不限制；数字 = 必须正好选这么多
+			const btn = player.chooseButton([title, [list, "vcard"]], multi);
+			if (selectCount !== null) {
+				btn.set("selectButton", selectCount);
+			}
+			const links = await btn
 				.set("ai", (button) => {
 					if (button && button.link && button.link[2] && lib.skill[button.link[2]]) {
 						return get.skillRank ? get.skillRank(button.link[2]) : 1;
