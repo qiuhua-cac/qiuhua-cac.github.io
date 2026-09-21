@@ -8,39 +8,33 @@ game.import("character", function () {
 		filter: (ctx) => {
 			const card = ctx.card;
 			if (!card) return false;
-			// 只对杀和决斗生效
 			if (card.name !== "sha" && card.name !== "juedou") return false;
-			// 必须是「你使用的牌」——用事件名判断是主动视角还是被动视角
-			// 主动视角事件名：useCardToPlayered（你出牌）
-			// 被动视角事件名：useCardToTargeted（别人对你出牌）
-			const eventName = ctx.event && ctx.event.name;
+			// 用 ctx.trigger.name 判断视角（trigger 才一定有 name）
+			const eventName = ctx.trigger && ctx.trigger.name;
+			console.warn("[昂扬-filter] 视角 =", eventName);
 			if (eventName === "useCardToPlayered") {
-				// 主动视角：你是使用者，需要有目标
 				if (!ctx.target) return false;
 				return true;
 			}
 			if (eventName === "useCardToTargeted") {
-				// 被动视角：你是目标，需要有使用者
 				if (!ctx.source) return false;
 				return true;
 			}
-			// 其他视角不触发
 			return false;
 		},
 		async run(ctx) {
-			const eventName = ctx.event && ctx.event.name;
+			const eventName = ctx.trigger && ctx.trigger.name;
 			let opponent = null;
 			let usedCardName = null;
 
 			if (eventName === "useCardToPlayered") {
-				// 主动：你出牌，对方 = 目标
 				opponent = ctx.target;
 				usedCardName = ctx.card.name;
 			} else if (eventName === "useCardToTargeted") {
-				// 被动：别人对你出牌，对方 = 使用者
 				opponent = ctx.source;
 				usedCardName = ctx.card.name;
 			} else {
+				console.warn("[昂扬] 视角不匹配，return。eventName =", eventName);
 				return;
 			}
 
@@ -51,11 +45,9 @@ game.import("character", function () {
 
 			console.warn("[昂扬] 触发，视角 =", eventName, "，对方 =", opponent.name, "，牌名 =", usedCardName);
 
-			// 拿牌
 			await ctx.gainCard(opponent, "h", 1);
 			ctx.popup("昂扬");
 
-			// 注册：这张牌结算完后，虚拟出另一张牌
 			ctx.afterCardSettled(async () => {
 				console.warn("[昂扬] afterCardSettled 触发，usedCardName =", usedCardName);
 				if (!opponent.isIn() || opponent.countCards("h") === 0) {
