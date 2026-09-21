@@ -9,6 +9,7 @@ const EVENT_MAP = {
 	cardUsed: { player: "useCardAfter" },
 	cardResponded: { player: "respondAfter" },
 	turnStart: { player: "phaseZhunbeiBegin" },
+	turnStart2: { player: "phaseBeginStart" },
 	turnEnd: { player: "phaseJieshuBegin" },
 	drawPhase: { player: "phaseDrawBegin" },
 	playPhase: { player: "phaseUseBegin" },
