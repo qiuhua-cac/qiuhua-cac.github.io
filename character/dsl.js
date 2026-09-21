@@ -8,38 +8,24 @@ import { lib, game, ui, get, ai, _status } from "../noname.js";
 // 一、语义事件名映射表
 // ============================================================
 const EVENT_MAP = {
-	// 使用牌相关
 	shaTargeted: { player: "useCardToPlayered", target: "useCardToTargeted" },
 	cardTargeted: { player: "useCardToPlayered", target: "useCardToTargeted" },
 	cardUsed: { player: "useCardAfter" },
 	cardResponded: { player: "respondAfter" },
-
-	// 回合相关
 	turnStart: { player: "phaseZhunbeiBegin" },
 	turnEnd: { player: "phaseJieshuBegin" },
 	drawPhase: { player: "phaseDrawBegin" },
 	playPhase: { player: "phaseUseBegin" },
 	discardPhase: { player: "phaseDiscardBegin" },
-
-	// 伤害相关
 	damaged: { player: "damageEnd" },
 	damageSource: { source: "damageSource" },
-
-	// 体力相关
 	recovered: { player: "recoverEnd" },
 	lostHp: { player: "loseHpEnd" },
-
-	// 濒死
 	dying: { global: "dying" },
-
-	// 摸牌
 	drawEnd: { player: "drawEnd" },
-
-	// 获得牌
 	gainEnd: { player: "gainEnd" },
 };
 
-// 需要全局监听的事件（不是 player / target / source 视角）
 const GLOBAL_EVENTS = ["dying"];
 
 // ============================================================
@@ -167,18 +153,27 @@ function createContext(event, trigger, player, skillName) {
 				return;
 			}
 			const tempSkillName = "_dsl_settled_" + skillName + "_" + Date.now() + "_" + Math.floor(Math.random() * 1000);
+			const cleanup = () => {
+				player.removeSkill(tempSkillName);
+				delete lib.skill[tempSkillName];
+				delete lib.translate[tempSkillName];
+				delete lib.translate[tempSkillName + "_info"];
+			};
 			lib.skill[tempSkillName] = {
 				trigger: { player: "useCardAfter" },
 				filter(event, triggerPlayer) {
 					const tc = trigger.card;
 					if (!tc || !currentCard) return false;
-					return tc === currentCard || (tc.cardid && currentCard.cardid && tc.cardid === currentCard.cardid);
+					const isMatch = tc === currentCard || (tc.cardid && currentCard.cardid && tc.cardid === currentCard.cardid);
+					if (!isMatch) {
+						// 不是目标牌，说明目标牌已经结算过，主动清理
+						cleanup();
+						return false;
+					}
+					return true;
 				},
 				async content(event, trigger, triggerPlayer) {
-					triggerPlayer.removeSkill(tempSkillName);
-					delete lib.skill[tempSkillName];
-					delete lib.translate[tempSkillName];
-					delete lib.translate[tempSkillName + "_info"];
+					cleanup();
 					try {
 						await callback();
 					} catch (e) {
@@ -189,7 +184,6 @@ function createContext(event, trigger, player, skillName) {
 				popup: false,
 				audio: 0,
 			};
-			// 给临时技能注册翻译，让弹窗显示为「昂扬」而不是乱码
 			lib.translate[tempSkillName] = "昂扬";
 			lib.translate[tempSkillName + "_info"] = "昂扬的后续效果";
 			player.addTempSkill(tempSkillName, "phaseAfter");
@@ -200,7 +194,7 @@ function createContext(event, trigger, player, skillName) {
 }
 
 // ============================================================
-// 三、把 DSL 的 on / trigger 结构翻译成无名杀的 trigger 字段
+// 三、translateTrigger
 // ============================================================
 function translateTrigger(dsl) {
 	if (dsl.trigger) {
@@ -264,7 +258,7 @@ function translateTrigger(dsl) {
 }
 
 // ============================================================
-// 四、主函数：defineSkill
+// 四、defineSkill
 // ============================================================
 export function defineSkill(name, dsl) {
 	const translated = translateTrigger(dsl);
@@ -352,7 +346,7 @@ export function defineSkill(name, dsl) {
 }
 
 // ============================================================
-// 五、辅助：把 DSL 技能挂到武将身上
+// 五、attachSkillToGeneral
 // ============================================================
 export function attachSkillToGeneral(generalName, skillNames) {
 	if (!lib.character[generalName]) {
