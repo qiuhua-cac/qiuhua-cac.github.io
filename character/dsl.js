@@ -162,11 +162,11 @@ function createContext(event, trigger, player, skillName) {
 			lib.skill[tempSkillName] = {
 				trigger: { player: "useCardAfter" },
 				filter(event, triggerPlayer) {
+					console.warn("[DSL] 临时技能 filter 被调用，当前牌 =", trigger.card && trigger.card.name, "，目标牌 =", currentCard && currentCard.name);
 					const tc = trigger.card;
 					if (!tc || !currentCard) return false;
 					const isMatch = tc === currentCard || (tc.cardid && currentCard.cardid && tc.cardid === currentCard.cardid);
 					if (!isMatch) {
-						// 不是目标牌，说明目标牌已经结算过，主动清理
 						cleanup();
 						return false;
 					}
