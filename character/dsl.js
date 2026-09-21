@@ -295,7 +295,7 @@ export function defineSkill(name, dsl) {
 				if (!mapped) continue;
 				let matched = false;
 				for (const key in mapped) {
-					if (mapped[key] === eventName) { matched = true; break; }
+					if (mapped[key] === eventName || eventName === "phase") { matched = true; break; }
 				}
 				if (!matched) continue;
 				if (h.filter) {
