@@ -115,7 +115,6 @@ function createContext(event, trigger, player, skillName) {
 
 		async chooseControl(...options) {
 			// 简单单选：弹窗给玩家选一个，返回选中的字符串
-			// 用法：const r = await ctx.chooseControl("选项A", "选项B");
 			const result = await player
 				.chooseControl(...options)
 				.set("ai", () => options[0])
@@ -125,8 +124,6 @@ function createContext(event, trigger, player, skillName) {
 
 		async chooseButtonFromList(title, list, multi = false) {
 			// 从结构化列表选按钮，返回选中项数组（每项是 [分类, 副标题, 名字]）
-			// 用法：const links = await ctx.chooseButtonFromList("请选择", [["分类","副标题","名字"], ...], false);
-			// links[0] 是选中项
 			const links = await player
 				.chooseButton([title, [list, "vcard"]], multi)
 				.set("ai", (button) => {
@@ -139,6 +136,28 @@ function createContext(event, trigger, player, skillName) {
 			return links;
 		},
 
+		randomGenerals(n = 2) {
+			// 从所有已启用武将包里，随机抽 n 个「有技能」的武将
+			// 返回 [{ name, skills, data }, ...]
+			const pool = [];
+			const seen = new Set();
+			for (const packName in lib.characterPack) {
+				const pack = lib.characterPack[packName];
+				for (const generalName in pack) {
+					if (seen.has(generalName)) continue;
+					seen.add(generalName);
+					const data = lib.character[generalName];
+					if (!data || !data[3] || data[3].length === 0) continue;
+					pool.push({ name: generalName, skills: data[3].slice(), data: data });
+				}
+			}
+			for (let i = pool.length - 1; i > 0; i--) {
+				const j = Math.floor(Math.random() * (i + 1));
+				[pool[i], pool[j]] = [pool[j], pool[i]];
+			}
+			return pool.slice(0, n);
+		},
+
 		addSkill(name) {
 			player.addSkill(name);
 		},
@@ -149,6 +168,14 @@ function createContext(event, trigger, player, skillName) {
 
 		removeSkill(name) {
 			player.removeSkill(name);
+		},
+
+		enableSkill(name) {
+			if (player.enableSkill) player.enableSkill(name);
+		},
+
+		disableSkill(name) {
+			if (player.disableSkill) player.disableSkill(name);
 		},
 
 		isLockedSkill(name) {
@@ -257,7 +284,6 @@ export function defineSkill(name, dsl) {
 	const skill = {
 		trigger: trigger,
 
-		// ===== 新增：顶层 filter，无名杀弹窗前会调用 =====
 		filter(event, player) {
 			const ctx = createContext(event, event, player, name);
 			const eventName = event && event.name;
