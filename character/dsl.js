@@ -6,7 +6,6 @@ import { lib, game, ui, get, ai, _status } from "../noname.js";
 
 // ============================================================
 // 一、语义事件名映射表
-// 用户写 "shaTargeted"，翻译层转成无名杀的真实事件名
 // ============================================================
 const EVENT_MAP = {
 	// 使用牌相关
@@ -45,7 +44,6 @@ const GLOBAL_EVENTS = ["dying"];
 
 // ============================================================
 // 二、ctx 对象工厂
-// 每次技能触发，都为本次触发创建一个 ctx
 // ============================================================
 function createContext(event, trigger, player, skillName) {
 	const ctx = {
@@ -55,7 +53,6 @@ function createContext(event, trigger, player, skillName) {
 		event: event,
 		skill: skillName,
 
-		// ----- 常用事件字段，方便直接用 -----
 		get target() {
 			if (!trigger) return null;
 			if (trigger.target) return trigger.target;
@@ -80,7 +77,6 @@ function createContext(event, trigger, player, skillName) {
 			},
 			clear(key) {
 				if (key === undefined) {
-					// 清空本技能所有 storage
 					for (const k in player.storage) {
 						if (k.startsWith(this._prefix)) {
 							delete player.storage[k];
@@ -98,7 +94,6 @@ function createContext(event, trigger, player, skillName) {
 		},
 
 		async gainCard(target, position = "h", n = 1) {
-			// 从目标拿牌，position 是 "h"（手牌）/"he"（手牌装备）/"e"（装备）
 			const result = await player
 				.gainPlayerCard(target, position, true, "gain2")
 				.forResult();
@@ -113,8 +108,6 @@ function createContext(event, trigger, player, skillName) {
 		},
 
 		async useVirtual(name, target) {
-			// 视为使用一张虚拟牌
-			// 防御：target 必须存在、非数组、在游戏中
 			if (!target) {
 				console.error(`[DSL] useVirtual 缺少 target`);
 				return;
@@ -127,7 +120,7 @@ function createContext(event, trigger, player, skillName) {
 				console.error(`[DSL] useVirtual 的 target 已不在游戏中`);
 				return;
 			}
-			const card = { name: name, isCard: true };
+			const card = { name: name, isCard: true, cards: [], virtual: true };
 			await player.useCard(card, target);
 		},
 
@@ -172,6 +165,35 @@ function createContext(event, trigger, player, skillName) {
 		popup(text) {
 			player.popup(text);
 		},
+
+		// ----- 新增：等当前牌结算完后执行回调 -----
+		afterCardSettled(callback) {
+			const currentCard = trigger && trigger.card;
+			if (!currentCard) {
+				console.error("[DSL] afterCardSettled 拿不到当前 card，无法注册");
+				return;
+			}
+			const tempSkillName = "_dsl_settled_" + skillName + "_" + Date.now() + "_" + Math.floor(Math.random() * 1000);
+			lib.skill[tempSkillName] = {
+				trigger: { player: "useCardAfter" },
+				filter(event, triggerPlayer) {
+					const tc = trigger.card;
+					if (!tc || !currentCard) return false;
+					return tc === currentCard || (tc.cardid && currentCard.cardid && tc.cardid === currentCard.cardid);
+				},
+				async content(event, trigger, triggerPlayer) {
+					triggerPlayer.removeSkill(tempSkillName);
+					delete lib.skill[tempSkillName];
+					try {
+						await callback();
+					} catch (e) {
+						console.error(`[DSL] afterCardSettled 回调出错 (技能 ${skillName}):`, e);
+					}
+				},
+				silent: true,
+			};
+			player.addTempSkill(tempSkillName, "phaseAfter");
+		},
 	};
 
 	return ctx;
@@ -181,14 +203,12 @@ function createContext(event, trigger, player, skillName) {
 // 三、把 DSL 的 on / trigger 结构翻译成无名杀的 trigger 字段
 // ============================================================
 function translateTrigger(dsl) {
-	// 情况 1：扁平写法 { trigger: "shaTargeted", filter, run }
 	if (dsl.trigger) {
 		const mapped = EVENT_MAP[dsl.trigger];
 		if (!mapped) {
 			console.error(`[DSL] 未知事件名: ${dsl.trigger}，请检查 EVENT_MAP`);
 			return null;
 		}
-		// 校验映射到的无名杀事件名是否真实存在（仅当 hookmap 已有内容时）
 		if (Object.keys(lib.hookmap).length > 0) {
 			for (const key in mapped) {
 				const realName = mapped[key];
@@ -203,7 +223,6 @@ function translateTrigger(dsl) {
 		return { trigger: mapped, handlers: [{ filter: dsl.filter, run: dsl.run, dslName: dsl.trigger }] };
 	}
 
-	// 情况 2：on 写法 { on: { shaTargeted: { filter, run } } }
 	if (dsl.on) {
 		const handlers = [];
 		let mergedTrigger = null;
@@ -213,7 +232,6 @@ function translateTrigger(dsl) {
 				console.error(`[DSL] 未知事件名: ${eventName}，请检查 EVENT_MAP`);
 				continue;
 			}
-			// 校验映射到的无名杀事件名是否真实存在（仅当 hookmap 已有内容时）
 			if (Object.keys(lib.hookmap).length > 0) {
 				for (const key in mapped) {
 					const realName = mapped[key];
@@ -225,7 +243,6 @@ function translateTrigger(dsl) {
 					}
 				}
 			}
-			// 合并 trigger 字段
 			if (!mergedTrigger) {
 				mergedTrigger = {};
 			}
@@ -255,7 +272,6 @@ export function defineSkill(name, dsl) {
 
 	const { trigger, handlers } = translated;
 
-	// 构建无名杀的技能对象
 	const skill = {
 		trigger: trigger,
 		forced: dsl.forced || false,
@@ -264,9 +280,7 @@ export function defineSkill(name, dsl) {
 		logTarget: dsl.logTarget,
 		_priority: dsl.priority || 0,
 
-		// 核心：把多个 handler 合并成一个 content
 		async content(event, trigger, player) {
-			// ----- 循环保护：同一技能 2 秒内触发超过 50 次，强制中断 -----
 			if (!player._dsl_loop_guard) player._dsl_loop_guard = {};
 			const guardKey = name;
 			const now = Date.now();
@@ -284,14 +298,11 @@ export function defineSkill(name, dsl) {
 				return;
 			}
 
-			// 找出当前触发对应哪个 handler
-			// 通过 trigger.name（无名杀事件名）反查 dslName
 			const triggerName = trigger.name;
 			let matched = null;
 			for (const h of handlers) {
 				const mapped = EVENT_MAP[h.dslName];
 				if (!mapped) continue;
-				// 检查 triggerName 是否匹配 mapped 里的任意值
 				for (const key in mapped) {
 					if (mapped[key] === triggerName) {
 						matched = h;
@@ -302,14 +313,11 @@ export function defineSkill(name, dsl) {
 			}
 
 			if (!matched) {
-				// 如果找不到匹配，默认用第一个 handler
 				matched = handlers[0];
 			}
 
-			// 创建 ctx
 			const ctx = createContext(event, trigger, player, name);
 
-			// 执行 filter（如果有）
 			if (matched.filter) {
 				try {
 					const ok = matched.filter(ctx);
@@ -320,7 +328,6 @@ export function defineSkill(name, dsl) {
 				}
 			}
 
-			// 执行 run
 			if (matched.run) {
 				try {
 					await matched.run(ctx);
@@ -330,7 +337,6 @@ export function defineSkill(name, dsl) {
 			}
 		},
 
-		// 技能移除时清理 storage
 		onremove(player) {
 			for (const k in player.storage) {
 				if (k.startsWith(name + "_")) {
@@ -340,7 +346,6 @@ export function defineSkill(name, dsl) {
 		},
 	};
 
-	// 注册到 lib.skill
 	lib.skill[name] = skill;
 
 	return skill;
@@ -348,7 +353,6 @@ export function defineSkill(name, dsl) {
 
 // ============================================================
 // 五、辅助：把 DSL 技能挂到武将身上
-// 这个函数帮你把技能名写进武将数据里
 // ============================================================
 export function attachSkillToGeneral(generalName, skillNames) {
 	if (!lib.character[generalName]) {
