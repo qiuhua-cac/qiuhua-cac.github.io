@@ -64,7 +64,10 @@ game.import("character", function () {
 	// ===== 傀术（第一阶段） =====
 	defineSkill("kuishu", {
 		trigger: "turnStart2",
-		filter: () => true,
+		filter: (ctx) => {
+			console.warn("[傀术-filter] 被调用，trigger.name =", ctx.trigger && ctx.trigger.name);
+			return true;
+		},
 		async run(ctx) {
 			console.warn("[傀术] 回合开始触发");
 
