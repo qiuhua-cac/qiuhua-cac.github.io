@@ -6,21 +6,26 @@ game.import("character", function () {
 	defineSkill("angyang", {
 		trigger: "shaTargeted",
 		filter: (ctx) => {
-			const card = ctx.card;
-			console.warn("[昂扬-filter] 被调用，card.name =", card && card.name, "，trigger.name =", ctx.trigger && ctx.trigger.name);
-			if (!card) return false;
-			if (card.name !== "sha" && card.name !== "juedou") return false;
-			const eventName = ctx.trigger && ctx.trigger.name;
-			if (eventName === "useCardToPlayered") {
-				if (!ctx.target) return false;
-				return true;
-			}
-			if (eventName === "useCardToTargeted") {
-				if (!ctx.source) return false;
-				return true;
-			}
-			return false;
-		},
+    const card = ctx.card;
+    const name1 = card && card.name;
+    console.warn("[昂扬-filter] 第一次取 name =", name1);
+    if (!card) return false;
+    if (card.name !== "sha" && card.name !== "juedou") {
+        console.warn("[昂扬-filter] 第二次取 name =", card.name, "，即将 return false");
+        return false;
+    }
+    console.warn("[昂扬-filter] 通过！name =", card.name);
+    const eventName = ctx.trigger && ctx.trigger.name;
+    if (eventName === "useCardToPlayered") {
+        if (!ctx.target) return false;
+        return true;
+    }
+    if (eventName === "useCardToTargeted") {
+        if (!ctx.source) return false;
+        return true;
+    }
+    return false;
+},
 		async run(ctx) {
 			const eventName = ctx.trigger && ctx.trigger.name;
 			let opponent = null;
