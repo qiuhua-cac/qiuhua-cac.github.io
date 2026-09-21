@@ -19,6 +19,7 @@ game.import("character", function () {
 			ctx.popup("昂扬");
 			ctx.storage.set("target", target);
 			ctx.storage.set("card", ctx.card);
+			console.log("[昂扬探针] 存进去的 card =", ctx.card, "，name =", ctx.card && ctx.card.name);
 			ctx.addTempSkill("angyang_after", "phaseAfter");
 		},
 	});
@@ -29,13 +30,19 @@ game.import("character", function () {
 			return ctx.storage.get("card") === ctx.card;
 		},
 		async run(ctx) {
-			const target = ctx.storage.get("target");
-			const card = ctx.storage.get("card");
-			ctx.storage.clear();
-			if (!target || target.countCards("h") === 0) return;
-			const virtualName = card.name === "sha" ? "juedou" : "sha";
-			await ctx.useVirtual(virtualName, target);
-		},
+    const target = ctx.storage.get("target");
+    const card = ctx.storage.get("card");
+    console.log("[昂扬探针-after] target =", target, "，card =", card, "，card.name =", card && card.name, "，ctx.card =", ctx.card, "，ctx.card.name =", ctx.card && ctx.card.name);
+    ctx.storage.clear();
+    if (!target || target.countCards("h") === 0) {
+        console.log("[昂扬探针-after] 因 target 无手牌 return");
+        return;
+    }
+    const virtualName = card.name === "sha" ? "juedou" : "sha";
+    console.log("[昂扬探针-after] 准备 useVirtual:", virtualName, "→", target);
+    await ctx.useVirtual(virtualName, target);
+    console.log("[昂扬探针-after] useVirtual 已执行完毕");
+},
 	});
 
 	return {
