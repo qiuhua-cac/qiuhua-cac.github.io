@@ -172,7 +172,7 @@ function createContext(event, trigger, player, skillName) {
 	return ctx;
 }
 // ============================================================
-// 三、translateTrigger
+// 三、translateTrigger【已改造：增加原生trigger.filter】
 // ============================================================
 function translateTrigger(dsl) {
 	if (dsl.trigger) {
@@ -192,7 +192,20 @@ function translateTrigger(dsl) {
 				}
 			}
 		}
-		return { trigger: mapped, handlers: [{ filter: dsl.filter, run: dsl.run, dslName: dsl.trigger }] };
+		const triggerObj = mapped;
+		// 【新增】注入原生trigger.filter，在询问弹窗之前执行
+		if(dsl.filter){
+			triggerObj.filter = function(event, trigger, player){
+				const ctx = createContext(event, trigger, player, dsl.name);
+				try{
+					return dsl.filter(ctx);
+				}catch(e){
+					console.error(`[DSL] 原生trigger.filter异常：`,e);
+					return false;
+				}
+			}
+		}
+		return { trigger: triggerObj, handlers: [{ filter: dsl.filter, run: dsl.run, dslName: dsl.trigger }] };
 	}
 	if (dsl.on) {
 		const handlers = [];
@@ -227,6 +240,7 @@ function translateTrigger(dsl) {
 				dslName: eventName,
 			});
 		}
+		// 【新增】on多事件模式，原生trigger.filter暂不支持，后续扩展
 		return { trigger: mergedTrigger, handlers };
 	}
 	console.error("[DSL] defineSkill 缺少 trigger 或 on 字段");
@@ -236,7 +250,7 @@ function translateTrigger(dsl) {
 // 四、defineSkill
 // ============================================================
 export function defineSkill(name, dsl) {
-	const translated = translateTrigger(dsl);
+	const translated = translateTrigger({...dsl, name});
 	if (!translated) return;
 	const { trigger, handlers } = translated;
 	const skill = {
